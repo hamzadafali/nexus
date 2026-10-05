@@ -1,0 +1,19 @@
+spring:
+  application:
+    name: nexus
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY}
+      chat:
+        model: gpt-4o-mini
+    retry:
+      max-attempts: 3
+      on-http-codes: 429
+      backoff:
+        initial-interval: 2s
+        multiplier: 2
+        max-interval: 10s
+  http:
+    client:            # Spring Boot 4 ; en Boot 3.x c'est "client" (sans s)
+      connect-timeout: 10s
+      read-timeout: 120s
