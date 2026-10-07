@@ -1,20 +1,21 @@
 package hz.labs.nexus.application;
 
-import hz.labs.nexus.api.AskRequest;
 import hz.labs.nexus.api.LlmResponse;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.retry.NonTransientAiException;
+import org.springframework.ai.retry.TransientAiException;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClientException;
 
 @Service
 public class AiService {
 
 
     private static final String SYSTEM_PROMPT = """
-            Tu es un assistant expert qui analyse un texte technique (question, extrait de code
-            ou description d'un probleme) et en extrait :
-            - skill : la competence ou le domaine technique concerne (ex: "Java Concurrency", "Java Streams")
-            - explanation : une explication concise du probleme et/ou de sa resolution
-            - level : le niveau de difficulte estime, sur une echelle de 1 (debutant) a 5 (expert)
+           You are NEXUS, an AI assistant for software engineering teams. Answer questions about software architecture,
+            development, operations and incidents clearly and concisely. You do not have access to the organization's 
+            internal documentation or systems yet: if a question depends on internal knowledge (a specific service, 
+            incident or team), say so explicitly instead of guessing.
             """;
 
     private final ChatClient chatClient;
@@ -29,15 +30,24 @@ public class AiService {
      *
      * @param text le texte a analyser, jamais vide (verifie en amont par le controller)
      * @return le resultat structure retourne par le modele
+     * @throws AiProviderUnavailableException si le provider est injoignable ou repond en erreur
      */
     public LlmResponse analyse(String text) {
         // Etape 2 : on envoie le prompt systeme (consignes d'analyse) et le texte utilisateur au modele
         // Etape 3 : .entity(...) demande a Spring AI de generer le schema JSON attendu et de deserialiser
         // automatiquement la reponse du modele en instance de AnalyseResult
-        return chatClient.prompt()
-                .system(SYSTEM_PROMPT)
-                .user(text)
-                .call()
-                .entity(LlmResponse.class);
+        try {
+            return chatClient.prompt()
+                    .system(SYSTEM_PROMPT)
+                    .user(text)
+                    .call()
+                    .entity(LlmResponse.class);
+        }
+        // TransientAiException : 429 et 5xx du provider, une fois les retries epuises.
+        // NonTransientAiException : 4xx (cle invalide, requete refusee).
+        // RestClientException : couche transport (timeout de connexion ou de lecture, DNS).
+        catch (TransientAiException | NonTransientAiException | RestClientException exception) {
+            throw new AiProviderUnavailableException(exception);
+        }
     }
 }

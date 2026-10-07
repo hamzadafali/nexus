@@ -6,8 +6,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.Objects;
-
 @RestController
 public class AskController {
 
@@ -20,9 +18,6 @@ public class AskController {
 
     @PostMapping("/ask")
     public LlmResponse responseLlm(@RequestBody AskRequest ask) {
-
-        Objects.requireNonNull(ask, "ask must not be null");
-
         return aiService.analyse(ask.ask());
     }
 
