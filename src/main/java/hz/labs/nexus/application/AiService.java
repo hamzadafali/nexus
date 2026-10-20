@@ -1,26 +1,32 @@
 package hz.labs.nexus.application;
 
-import hz.labs.nexus.api.AskRequest;
-import hz.labs.nexus.api.LlmResponse;
+import hz.labs.nexus.api.AskResponse;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.client.ResponseEntity;
+import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
+
+import java.time.Duration;
 
 @Service
 public class AiService {
 
 
-    private static final String SYSTEM_PROMPT = """
-            Tu es un assistant expert qui analyse un texte technique (question, extrait de code
-            ou description d'un probleme) et en extrait :
-            - skill : la competence ou le domaine technique concerne (ex: "Java Concurrency", "Java Streams")
-            - explanation : une explication concise du probleme et/ou de sa resolution
-            - level : le niveau de difficulte estime, sur une echelle de 1 (debutant) a 5 (expert)
-            """;
-
     private final ChatClient chatClient;
+    private final Resource systemPrompt;
+    private final String promptVersion;
+    private final AiUsageRecorder usageRecorder;
 
-    public AiService(ChatClient chatClient) {
+    public AiService(ChatClient chatClient,
+                     @Value("${nexus.ai.prompts.ask-system}") Resource systemPrompt,
+                     @Value("${nexus.ai.prompts.ask-version}") String promptVersion,
+                     AiUsageRecorder usageRecorder) {
         this.chatClient = chatClient;
+        this.systemPrompt = systemPrompt;
+        this.promptVersion = promptVersion;
+        this.usageRecorder = usageRecorder;
     }
 
 
@@ -30,14 +36,21 @@ public class AiService {
      * @param text le texte a analyser, jamais vide (verifie en amont par le controller)
      * @return le resultat structure retourne par le modele
      */
-    public LlmResponse analyse(String text) {
-        // Etape 2 : on envoie le prompt systeme (consignes d'analyse) et le texte utilisateur au modele
-        // Etape 3 : .entity(...) demande a Spring AI de generer le schema JSON attendu et de deserialiser
-        // automatiquement la reponse du modele en instance de AnalyseResult
-        return chatClient.prompt()
-                .system(SYSTEM_PROMPT)
+    public AskResponse analyse(String text) {
+        long start = System.nanoTime();
+
+        // On envoie le prompt système (instructions) et le texte utilisateur (données) au modèle.
+        // responseEntity(...) génère le schéma JSON, désérialise la réponse en AskResponse
+        // ET conserve le ChatResponse brut (usage tokens + modèle) pour les métriques.
+        ResponseEntity<ChatResponse, AskResponse> result = chatClient.prompt()
+                .system(systemPrompt)
                 .user(text)
                 .call()
-                .entity(LlmResponse.class);
+                .responseEntity(AskResponse.class);
+
+        Duration latency = Duration.ofNanos(System.nanoTime() - start);
+        usageRecorder.record(result.response(), promptVersion, latency);
+
+        return result.entity();
     }
 }

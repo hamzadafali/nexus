@@ -17,3 +17,19 @@ spring:
     client:            # Spring Boot 4 ; en Boot 3.x c'est "client" (sans s)
       connect-timeout: 10s
       read-timeout: 120s
+
+nexus:
+  ai:
+    prompts:
+      ask-system: classpath:prompts/ask/system-v1.st
+      ask-version: ask-system-v1
+    pricing:            # USD par million de tokens
+      models:
+        gpt-4o-mini:
+          input-per-million: 0.15
+          output-per-million: 0.60
+
+logging:
+  structured:
+    format:
+      console: ecs      # affiche les addKeyValue(...) des logs

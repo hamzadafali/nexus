@@ -19,7 +19,7 @@ public class AskController {
 
 
     @PostMapping("/ask")
-    public LlmResponse responseLlm(@RequestBody AskRequest ask) {
+    public AskResponse responseLlm(@RequestBody AskRequest ask) {
 
         Objects.requireNonNull(ask, "ask must not be null");
 
