@@ -6,6 +6,10 @@ spring:
       api-key: ${OPENAI_API_KEY}
       chat:
         model: gpt-4o-mini
+    anthropic:
+      api-key: ${ANTHROPIC_API_KEY}
+      chat:
+        model: claude-sonnet-5-5
     retry:
       max-attempts: 3
       on-http-codes: 429
@@ -20,9 +24,12 @@ spring:
 
 nexus:
   ai:
+    primary: openai
+    fallback: anthropic
+    fallback-enabled: true
     prompts:
-      ask-system: classpath:prompts/ask/system-v1.st
-      ask-version: ask-system-v1
+      ask-system: classpath:prompts/ask/system-v2.st
+      ask-version: ask-system-v2
     pricing:            # USD par million de tokens
       models:
         gpt-4o-mini:
